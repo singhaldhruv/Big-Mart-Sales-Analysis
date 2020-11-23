@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Feb  1 13:04:24 2018
-
-@author: magarwal
+@author: dhruv
 """
 
 import pandas as pd
@@ -11,23 +10,23 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
-
 # 1. Hypothesis Generation
 # 2. Data Exploration-------------------------------------------------------------------------
 
 #Read files:
-train = pd.read_csv("/Users/magarwal/Desktop/CDAC Project/train.csv")
-test = pd.read_csv("/Users/magarwal/Desktop/CDAC Project/test.csv")
+train = pd.read_csv("/Users/dhruv/Desktop/CDAC Project/train.csv")
+test = pd.read_csv("/Users/dhruv/Desktop/CDAC Project/test.csv")
 
 train['source']='train'
 test['source']='test'
-# spojenie datasetov, aby sme ich jednotne opravovali
-# ignore index, aby bolo nove cislovanie indexu
+
+# connection datasets to get them repaired uniform
+# ignore index to be a new index number
 data = pd.concat([train, test], ignore_index=True)
 
 print (train.shape, test.shape, data.shape)
 
-# vypis poctu chybajucich hodnot
+# listing the number of missing values
 print(data.apply(lambda x: sum(x.isnull())))
 
 # basic statistic
@@ -37,7 +36,7 @@ print(data.describe())
 print('\nUnique values')
 print(data.apply(lambda x: len(x.unique())))
 
-# ideme sledovat frekvenciu kategorii
+# we are going to watch the frequency of the category
 #Filter categorical variables
 categorical_columns = [x for x in data.dtypes.index if data.dtypes[x]=='object']
 #Exclude ID cols and source:
@@ -47,15 +46,13 @@ for col in categorical_columns:
     print ('\nFrequency of Categories for varible %s'%col)
     print (data[col].value_counts())
 
-
-
 # 3. Data Cleaning ----------------------------------------------------------------------------
 # ------------------------------Imputing Missing Values----------------------------------------
 # Item_Weight and Outlet_Size are missing
 print('--------Imputing Missing Values----------------------------')
 
 # Item_Weight
-#Determine the average weight per item: (pivot_table ma defaultnu funkciu mean)
+#Determine the average weight per item: (pivot_table has default function mean)
 item_avg_weight = data.pivot_table(values='Item_Weight', index='Item_Identifier')
 
 #Get a boolean variable specifying missing Item_Weight values
@@ -66,14 +63,12 @@ print ('\nOrignal #missing: %d'% sum(miss_bool))
 data.loc[miss_bool,'Item_Weight'] = data.loc[miss_bool,'Item_Identifier'].apply(lambda x: item_avg_weight[x])
 print ('Final #missing: %d'% sum(data['Item_Weight'].isnull()))
 
-
-
 # impute Outlet_Size with the mode of the Outlet_Size for the particular type of outlet
 
 #Import mode function:
 from scipy.stats import mode
 
-#Determing the mode for each ( doplnil som dropna() aby to fungovalo )
+#Determing the mode for each 
 outlet_size_mode = data.dropna().pivot_table(values='Outlet_Size', columns='Outlet_Type',aggfunc=(lambda x: mode(x).mode[0]) )
 print ('Mode for each Outlet_Type:')
 print (outlet_size_mode)
@@ -86,21 +81,11 @@ print ('\nOrignal #missing: %d'% sum(miss_bool))
 data.loc[miss_bool,'Outlet_Size'] = data.loc[miss_bool,'Outlet_Type'].apply(lambda x: outlet_size_mode[x])
 print ('Final missing:',sum(data['Outlet_Size'].isnull()))
 
-
 # 4. Feature Engineering---------------------------------------------------------------------------------
 print('--------Feature engineering----------------------')
 
-
-
-# a)
-# rozmyslame ze zlucime Outlet_Type Supermarket Type2 and Type3, preverime to porovnanim ci to je dobry napad
-# vidime ze je v nich vyrazny rozdiel, takze ich nezlucime
+# Headlong of bile Outlet_Type Supermarket Type2 and Type3, verify it by comparing whether it is a good idea
 print(data.pivot_table(values='Item_Outlet_Sales',index='Outlet_Type'))
-
-
-
-
-
 
 # b) Modify Item_Visibility
 # We noticed that the minimum value here is 0, which makes no practical sense.
@@ -116,20 +101,13 @@ print ('Number of 0 values initially: %d'%sum(miss_bool))
 data.loc[miss_bool,'Item_Visibility'] = data.loc[miss_bool,'Item_Identifier'].apply(lambda x: visibility_avg[x])
 print ('Number of 0 values after modification: %d'%sum(data['Item_Visibility'] == 0))
 
-
-
-# vytvorenie pomeru viditelnosti produktu vs priemerna viditelnost tohto produktu vo vsetkych obchodoch
+# creating a ratio of product visibility vs average visibility of this product in all stores
 #Determine another variable with means ratio
 data['Item_Visibility_MeanRatio'] = data.apply(lambda x: x['Item_Visibility']/visibility_avg[x['Item_Identifier']], axis=1) # axis1 - iter. cez riadky
 print ('\n',data['Item_Visibility_MeanRatio'].describe())
 
-
-
-
-
-
-# c) Type of Item
-# prve dva pismena z ID rozdeluju data na 3 kategorie FD, DR, NC
+# Type of Item
+# the first two letters of the ID divide the data into 3 categories FD, DR, NC
 #Get the first two characters of ID:
 data['Item_Type_Combined'] = data['Item_Identifier'].apply(lambda x: x[0:2])
 #Rename them to more intuitive categories:
@@ -139,19 +117,10 @@ data['Item_Type_Combined'] = data['Item_Type_Combined'].map({'FD':'Food',
 print('\n',data['Item_Type_Combined'].value_counts())
 
 
-
-
-
-
 # d) Determine the years of operation of a store
 #Years:
 data['Outlet_Years'] = 2013 - data['Outlet_Establishment_Year']
 print('\n',data['Outlet_Years'].describe())
-
-
-
-
-
 
 # e) Modify categories of Item_Fat_Content
 #Change categories of low fat:
@@ -168,10 +137,6 @@ print (data['Item_Fat_Content'].value_counts())
 data.loc[data['Item_Type_Combined']=="Non-Consumable",'Item_Fat_Content'] = "Non-Edible"
 print(data['Item_Fat_Content'].value_counts())
 
-
-
-
-
 # f) Numerical and One-Hot Coding of Categorical variables
 # Since scikit-learn accepts only numerical variables, I converted all categories of nominal variables into numeric types
 
@@ -186,14 +151,11 @@ for i in var_mod:
     data[i] = le.fit_transform(data[i])
 
 
-#One Hot Coding: (jedna premenna s viac kategoriami je rozdelena na viac binarnych premennych )
+#One Hot Coding: (one variable with multiple categories is divided into multiple binary variables )
 data = pd.get_dummies(data, columns=['Item_Fat_Content','Outlet_Location_Type','Outlet_Size','Outlet_Type',
                               'Item_Type_Combined','Outlet'])
 
 print(data.dtypes)
-
-
-
 
 # g) Exporting Data
 #Drop the columns which have been converted to different types:
@@ -211,13 +173,9 @@ train.drop(['source'],axis=1,inplace=True)
 train.to_csv("train_modified.csv",index=False)
 test.to_csv("test_modified.csv",index=False)
 
-
-
-
 # 5. Model Building------------------------------------------------------------------
 
-
-# baseline model (iba jednoduchy odhad, v tomto pripade priemer)
+# baseline model (just a simple estimate, in this case the average)
 #Mean based:
 mean_sales = train['Item_Outlet_Sales'].mean()
 
@@ -226,13 +184,9 @@ base1 = test[['Item_Identifier','Outlet_Identifier']]
 base1['Item_Outlet_Sales'] = mean_sales
 
 #Export submission file
-##base1.to_csv("alg0.csv",index=False)
+#base1.to_csv("alg0.csv",index=False)
 
-
-
-
-
-# funkcia na predikovanie/export suboru na vlzoenie do sutaze
+# function for predicting / exporting the file to enter the competition
 #Define target and ID columns:
 target = 'Item_Outlet_Sales'
 IDcol = ['Item_Identifier','Outlet_Identifier']
@@ -261,13 +215,7 @@ def modelfit(alg, dtrain, dtest, predictors, target, IDcol, filename):
     submission = pd.DataFrame({ x: dtest[x] for x in IDcol})
 ##    submission.to_csv(filename, index=False)
 
-
-
-
-
 # a) Linear Regression Model
-
-# lin. reg. vychadza inak ako v tutorialy why???
 
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
 
@@ -279,10 +227,8 @@ coef1 = pd.Series(alg1.coef_, predictors).sort_values()
 coef1.plot(kind='bar', title='Model Coefficients')
 plt.show()
 
-# koeficienty v lin. regression maju velke rozpatie, to naznacuje overfitting. Skusime Ridge alebo lasso.
+# coefficients in lin. regression have a large margin, it indicates overfitting. Let's try Ridge or Lasso.
 
-
-# ridge regression. Mensia magnitude, ale skore zostava podobne. O mnoho sa to uz nezlepsi ani po tunovani parametrov.
 predictors = [x for x in train.columns if x not in [target]+IDcol]
 alg2 = Ridge(alpha=0.05,normalize=True)
 modelfit(alg2, train, test, predictors, target, IDcol, 'alg2.csv')
@@ -290,13 +236,11 @@ coef2 = pd.Series(alg2.coef_, predictors).sort_values()
 coef2.plot(kind='bar', title='Model Coefficients')
 plt.show()
 
-
-
 # b) Decision Tree Model
 
 from sklearn.tree import DecisionTreeRegressor
 
-# CV skore naznacuje mierny overfitting
+# CV score indicates a slight overfitting
 predictors = [x for x in train.columns if x not in [target]+IDcol]
 alg3 = DecisionTreeRegressor(max_depth=15, min_samples_leaf=100)
 modelfit(alg3, train, test, predictors, target, IDcol, 'alg3.csv')
@@ -305,14 +249,13 @@ coef3.plot(kind='bar', title='Feature Importances')
 plt.show()
 
 
-# dalo by sa este zlepsit tunovanim parametrov
+# it could be further improved by tuning the parameters
 predictors = ['Item_MRP','Outlet_Type_0','Outlet_5','Outlet_Years']
 alg4 = DecisionTreeRegressor(max_depth=8, min_samples_leaf=150)
 modelfit(alg4, train, test, predictors, target, IDcol, 'alg4.csv')
 coef4 = pd.Series(alg4.feature_importances_, predictors).sort_values(ascending=False)
 coef4.plot(kind='bar', title='Feature Importances')
 plt.show()
-
 
 
 # C) Random Forest
@@ -327,7 +270,7 @@ coef5.plot(kind='bar', title='Feature Importances')
 plt.show()
 
 
-# ine parametre
+# other parameters
 predictors = [x for x in train.columns if x not in [target]+IDcol]
 alg6 = RandomForestRegressor(n_estimators=400,max_depth=6, min_samples_leaf=100,n_jobs=4)
 modelfit(alg6, train, test, predictors, target, IDcol, 'alg6.csv')
